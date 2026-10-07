@@ -18,6 +18,31 @@ pico-mooncresta runs standalone, or as an application of [pico-bootLoader](https
 
 ***
 
+## Screenshots
+
+The game as the emulator draws it, at twice the original size, with *Tate mode* off. For the two tate orientations, see [Display and tate mode](#display-and-tate-mode).
+
+<table>
+  <tr>
+    <td><img width="320" alt="Title screen: Trip to the space war, Moon Cresta, and the copyright notice" src="docs/screenshots/title.png" /></td>
+    <td><img width="320" alt="Four eye-shaped aliens above the player's rocket" src="docs/screenshots/eyes.png" /></td>
+  </tr>
+  <tr>
+    <td align="center">Title screen</td>
+    <td align="center">Waves 1 and 2: the eyes, which split in two when hit</td>
+  </tr>
+  <tr>
+    <td><img width="320" alt="Docking: the upper stage descends towards the lower stage, with the docking time counting down" src="docs/screenshots/docking.png" /></td>
+    <td><img width="320" alt="Insect-like aliens attacking in a V formation" src="docs/screenshots/flies.png" /></td>
+  </tr>
+  <tr>
+    <td align="center">Docking with the next stage of the rocket</td>
+    <td align="center">The flies attack in formation</td>
+  </tr>
+</table>
+
+***
+
 ## Game data
 
 Required is the MAME **`mooncrst`** set: Moon Cresta (Nichibutsu). It consists of 13 files, about 24 KB in total. The program ROMs of this set are encrypted; they are decrypted when loaded.
@@ -94,6 +119,19 @@ Moon Cresta was made for a monitor mounted on its side: the original picture is 
 
 The setting takes effect immediately and is saved with the other settings. The settings menu itself is not rotated.
 
+<table>
+  <tr>
+    <td><img width="320" alt="Tate mode Bottom left: the eyes wave shown unrotated, the score along the left edge" src="docs/screenshots/tate-bottom-left.png" /></td>
+    <td><img width="320" alt="Tate mode Bottom right: the same picture rotated by 180 degrees, the score along the right edge" src="docs/screenshots/tate-bottom-right.png" /></td>
+  </tr>
+  <tr>
+    <td align="center">Bottom left</td>
+    <td align="center">Bottom right</td>
+  </tr>
+</table>
+
+Both pictures appear upright once the monitor is turned as described in the table above.
+
 ***
 
 ## Settings menu
@@ -119,7 +157,7 @@ cd pico-mooncresta
 
 Every configuration must be built with `-2` (RP2350).
 
-The instruction loop of the Z80 core, `mooncresta/z80_ops.h`, is generated from MAME's opcode list `mooncresta/z80.lst` and is checked in, so the build does not need Python. After a change to the list, regenerate it with `tools/z80gen.py mooncresta/z80.lst mooncresta/z80_ops.h`. The built-in screensaver image (`DefaultSS444.c`, `DefaultSS555.c`) and the pico-bootLoader menu artwork are built by `tools/mkartwork.py`. Because the ROM set is not part of this project, neither are pictures of the game: they are captured from your own ROM set by the host harness and then laid out in the style of the bootloader's two themes.
+The instruction loop of the Z80 core, `mooncresta/z80_ops.h`, is generated from MAME's opcode list `mooncresta/z80.lst` and is checked in, so the build does not need Python. After a change to the list, regenerate it with `tools/z80gen.py mooncresta/z80.lst mooncresta/z80_ops.h`. The built-in screensaver image (`DefaultSS444.c`, `DefaultSS555.c`) and the pico-bootLoader menu artwork are built by `tools/mkartwork.py`. The pictures of the game in this artwork are captured from your own ROM set by the host harness, and then laid out in the style of the bootloader's two themes.
 
 ```sh
 hosttest/build.sh
