@@ -641,6 +641,28 @@ static uint8_t mapInputs(uint32_t buttons, uint32_t pad2)
 }
 
 // ---------------------------------------------------------------------------
+// Wii Classic controller (I2C).
+//
+// initAll() tries it once at boot, except on WIIPAD_DELAYED_START boards
+// without a TLV320 DAC (Murmulator M2), where pico_shared leaves it to its
+// menus, and this game never shows the ROM browser. A pad plugged in after
+// boot is not picked up on any board either. So it is started here before the
+// game, and retried about once a second while no pad answers. A retry without
+// a pad costs about 0.3 ms; finding one stalls once for 200 ms (the pad's own
+// init delays).
+// ---------------------------------------------------------------------------
+#if WII_PIN_SDA >= 0 and WII_PIN_SCL >= 0
+static void wiipadPoll()
+{
+    static int frames = 0;
+    if (wiipad_is_connected() || ++frames < 60)
+        return;
+    frames = 0;
+    wiipad_begin();
+}
+#endif
+
+// ---------------------------------------------------------------------------
 // Frame pacing.
 //
 // On PicoDVI with a framebuffer, pico_shared's PaceFrames60fps() busy-waits
@@ -704,6 +726,7 @@ static void processPerFrame()
     tuh_task();
     uint16_t wii = 0;
 #if WII_PIN_SDA >= 0 and WII_PIN_SCL >= 0
+    wiipadPoll();
     wii = wiipad_read(); // boards without the Wii port do not link wiipad at all
 #endif
 
@@ -796,6 +819,12 @@ int main()
     // Apply the saved DAC volume now; otherwise it only takes effect after the
     // settings menu has been opened and closed. No-op without a TLV320.
     EXT_AUDIO_SETVOLUME(settings.fruitjamVolumeLevel);
+
+#if WII_PIN_SDA >= 0 and WII_PIN_SCL >= 0
+    // after initAll(), so after the DAC: see wiipadPoll()
+    if (!wiipad_is_connected())
+        wiipad_begin();
+#endif
 
     haveRoms = sdOk && loadRoms();
     if (haveRoms)
