@@ -138,7 +138,7 @@ Z80_INLINE void mem_wr(z80_t *cpu, u16 addr, u8 data)
  * Flag helpers (for eg. POP/PUSH AF, EX AF,AF')
  * ------------------------------------------------------------------------ */
 
-uint8_t z80_get_f(const z80_t *cpu)
+uint8_t MCR_HOT(z80_get_f)(const z80_t *cpu)
 {
     u8 f = 0;
     f |= F_S();
@@ -523,7 +523,7 @@ void z80_reset(z80_t *cpu)
     SET_SA(SA_AFTER_LDAIR, 0);
 }
 
-void z80_set_nmi_line(z80_t *cpu, int state)
+void MCR_HOT(z80_set_nmi_line)(z80_t *cpu, int state)
 {
     /* an NMI is pending from the rising edge on */
     if (!cpu->nmi_state && state)
@@ -531,7 +531,7 @@ void z80_set_nmi_line(z80_t *cpu, int state)
     cpu->nmi_state = state != 0;
 }
 
-void z80_set_irq_line(z80_t *cpu, int state)
+void MCR_HOT(z80_set_irq_line)(z80_t *cpu, int state)
 {
     cpu->irq_state = state != 0;
     SET_SA(SA_IRQ_ON, cpu->irq_state);

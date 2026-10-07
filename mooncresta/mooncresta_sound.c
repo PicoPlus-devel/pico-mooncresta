@@ -492,12 +492,12 @@ void mcr_sound_reset(mcr_sound_t *s)
     s->bp_out = (float)BP_VREF;
 }
 
-void mcr_sound_lfo_w(mcr_sound_t *s, int offset, uint8_t data)
+void MCR_HOT(mcr_sound_lfo_w)(mcr_sound_t *s, int offset, uint8_t data)
 {
     s->lfo = (uint8_t)((s->lfo & ~(1 << offset)) | ((data & 1) << offset));
 }
 
-void mcr_sound_w(mcr_sound_t *s, int offset, uint8_t data)
+void MCR_HOT(mcr_sound_w)(mcr_sound_t *s, int offset, uint8_t data)
 {
     data &= 1;
     switch (offset & 7)
@@ -524,7 +524,7 @@ void mcr_sound_w(mcr_sound_t *s, int offset, uint8_t data)
     }
 }
 
-void mcr_sound_pitch_w(mcr_sound_t *s, uint8_t data)
+void MCR_HOT(mcr_sound_pitch_w)(mcr_sound_t *s, uint8_t data)
 {
     s->pitch = data;
 }

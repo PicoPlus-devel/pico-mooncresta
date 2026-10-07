@@ -48,17 +48,24 @@
 // clock) leaves most of core0 idle.
 #define MOONCRESTA_CLOCKFREQ_KHZ 252000
 
-// Must be a power of two (util::RingBuffer asserts it). 1024 is the
-// framebuffer-path convention and holds more than a frame's 735 samples.
-#define AUDIOBUFFERSIZE 1024
+// Must be a power of two (util::RingBuffer asserts it). It holds the audio
+// cushion (see pushAudio()) plus a whole frame of 735 samples. The I2S ring of
+// pico_shared is given the same size in CMakeLists.txt.
+#define AUDIOBUFFERSIZE 2048
 
 #define SAMPLERATE 44100
 #define SAMPLES_PER_FRAME (SAMPLERATE / 60) // 735
 
 #define ROMDIR "/roms/arcade/MOONCRESTA"
 
+// Output gains in Q8 (256 = unity). The game's sound peaks at about 2/3 of
+// full scale, which is too loud next to the other emulators of this family, so
+// both HDMI audio (HSTX and PicoDVI) and the I2S DAC get half the level.
 #ifndef DVI_AUDIO_GAIN_Q8
-#define DVI_AUDIO_GAIN_Q8 256
+#define DVI_AUDIO_GAIN_Q8 128
+#endif
+#ifndef EXT_AUDIO_GAIN_Q8
+#define EXT_AUDIO_GAIN_Q8 128
 #endif
 
 static uint32_t CPUFreqKHz = MOONCRESTA_CLOCKFREQ_KHZ;
@@ -322,12 +329,31 @@ static bool loadRoms()
 }
 
 // ---------------------------------------------------------------------------
-// Audio: one frame of mono samples to whichever sink is active. Runs from SRAM
-// (noinline, or it would be folded into the flash-resident caller).
+// Audio: one frame of mono samples to whichever sink is active.
+//
+// The machine renders a frame's 735 samples in one go, after the frame has
+// run. Pushed as a burst into a sink with nothing queued in front of it, the
+// sink runs dry just before the next burst arrives and plays a short gap on
+// every frame (PicoDVI fills it with silence, the I2S DMA stops): a buzz at
+// the frame rate. So the PicoDVI and I2S rings keep a cushion of
+// AUDIO_CUSHION samples queued in front of each frame's burst:
+//   - when the sink has drained (at start-up, after the settings menu, after a
+//     slow frame), the cushion is refilled with silence, once;
+//   - when the level has drifted more than AUDIO_TRIM_BAND away from the
+//     cushion, the frame pushes one sample less or one more. That matches the
+//     sink's clock to the emulated one: one sample per frame is 1360 ppm, far
+//     more than the two clocks differ.
+// The HSTX data-island queue manages its own level and is fed as it is.
+//
+// Runs from SRAM (noinline, or it would be folded into the flash-resident
+// caller).
 // ---------------------------------------------------------------------------
-static inline int16_t applyDviGain(int x)
+#define AUDIO_CUSHION 512   // ~12 ms
+#define AUDIO_TRIM_BAND 192 // drift tolerated before a frame is trimmed
+
+static inline int16_t applyGain(int x, int gainQ8)
 {
-    int32_t v = (x * DVI_AUDIO_GAIN_Q8) >> 8;
+    int32_t v = (x * gainQ8) >> 8;
     if (v > 32767)
         v = 32767;
     else if (v < -32768)
@@ -335,68 +361,98 @@ static inline int16_t applyDviGain(int x)
     return (int16_t)v;
 }
 
+// The two ring sinks: the I2S DAC (ext) or, on PicoDVI, the HDMI audio ring.
+static inline int ringQueued(bool ext)
+{
+#if EXT_AUDIO_IS_ENABLED
+    if (ext)
+        return I2S_AUDIO_RING_SIZE - 1 - EXT_AUDIO_GET_FREE();
+#endif
+#if !HSTX
+    return (int)dvi_->getAudioRingBuffer().getFullReadableSize();
+#else
+    return 0;
+#endif
+}
+
+static inline void ringPut(bool ext, int16_t s)
+{
+#if EXT_AUDIO_IS_ENABLED
+    if (ext)
+    {
+        EXT_AUDIO_ENQUEUE_SAMPLE(s, s);
+        return;
+    }
+#endif
+#if !HSTX
+    auto &ring = dvi_->getAudioRingBuffer();
+    if (ring.getWritableSize() == 0)
+        return; // full: dropped
+    *ring.getWritePointer() = {s, s};
+    ring.advanceWritePointer(1);
+#endif
+}
+
 static void __noinline __not_in_flash_func(pushAudio)(const int16_t *buf, int n)
 {
     const bool mute = !settings.flags.audioEnabled;
 
-#if !HSTX
 #if EXT_AUDIO_IS_ENABLED
-    if (settings.flags.useExtAudio)
+#if HSTX
+    const bool ext = settings.flags.useExtAudio || Frens::isHeadPhoneJackConnected();
+#else
+    const bool ext = settings.flags.useExtAudio;
+#endif
+#else
+    const bool ext = false;
+#endif
+
+#if HSTX
+    if (!ext)
     {
         for (int i = 0; i < n; i++)
         {
             int16_t s = mute ? 0 : buf[i];
-            EXT_AUDIO_ENQUEUE_SAMPLE(s, s);
 #if ENABLE_VU_METER
             if (settings.flags.enableVUMeter)
                 addSampleToVUMeter(s);
 #endif
+            int16_t g = applyGain(s, DVI_AUDIO_GAIN_Q8);
+            hstx_push_audio_sample(g, g);
         }
         return;
     }
 #endif
-    auto &ring = dvi_->getAudioRingBuffer();
-    while (n > 0)
+
+    // the cushion and the drift trim, see above
+    const int queued = ringQueued(ext);
+    int repeat = 0;
+    if (queued < AUDIO_CUSHION / 4)
     {
-        int w = std::min<int>(n, ring.getWritableSize());
-        if (w <= 0)
-            return; // ring full: drop the rest of this frame
-        auto p = ring.getWritePointer();
-        for (int i = 0; i < w; i++)
-        {
-            int16_t s = mute ? 0 : applyDviGain(*buf);
-            buf++;
-            *p++ = {s, s};
-#if ENABLE_VU_METER
-            if (settings.flags.enableVUMeter)
-                addSampleToVUMeter(s);
-#endif
-        }
-        ring.advanceWritePointer(w);
-        n -= w;
+        for (int i = queued; i < AUDIO_CUSHION; i++)
+            ringPut(ext, 0);
     }
-#else
-#if EXT_AUDIO_IS_ENABLED
-    const bool toExt = settings.flags.useExtAudio || Frens::isHeadPhoneJackConnected();
-#endif
+    else if (queued > AUDIO_CUSHION + AUDIO_TRIM_BAND)
+    {
+        n--;
+    }
+    else if (queued < AUDIO_CUSHION - AUDIO_TRIM_BAND)
+    {
+        repeat = 1;
+    }
+
+    int16_t s = 0;
     for (int i = 0; i < n; i++)
     {
-        int16_t s = mute ? 0 : buf[i];
+        s = mute ? 0 : buf[i];
 #if ENABLE_VU_METER
         if (settings.flags.enableVUMeter)
             addSampleToVUMeter(s);
 #endif
-#if EXT_AUDIO_IS_ENABLED
-        if (toExt)
-        {
-            EXT_AUDIO_ENQUEUE_SAMPLE(s, s);
-            continue;
-        }
-#endif
-        int16_t g = applyDviGain(s);
-        hstx_push_audio_sample(g, g);
+        ringPut(ext, applyGain(s, ext ? EXT_AUDIO_GAIN_Q8 : DVI_AUDIO_GAIN_Q8));
     }
-#endif
+    if (repeat)
+        ringPut(ext, applyGain(s, ext ? EXT_AUDIO_GAIN_Q8 : DVI_AUDIO_GAIN_Q8));
 }
 
 // ---------------------------------------------------------------------------
@@ -585,11 +641,41 @@ static uint8_t mapInputs(uint32_t buttons, uint32_t pad2)
 }
 
 // ---------------------------------------------------------------------------
+// Frame pacing.
+//
+// On PicoDVI with a framebuffer, pico_shared's PaceFrames60fps() busy-waits
+// for core1's vsync flag. Core1 sets it after converting the last line of a
+// frame and clears it again a few instructions later, at the top of its loop,
+// so core0 misses it about half the time and then waits a whole extra frame:
+// the game ran at about 40 fps and the audio starved. The DVI frame counter
+// advances at the start of the vertical sync and cannot be missed: a frame
+// that ran long simply finds it already advanced. HSTX keeps PaceFrames60fps().
+// ---------------------------------------------------------------------------
+static void paceFrame(bool init)
+{
+#if HSTX
+    Frens::PaceFrames60fps(init);
+#else
+    static uint32_t last = 0;
+    uint32_t now = dvi_->getFrameCounter();
+    if (!init)
+    {
+        while (now == last)
+        {
+            __compiler_memory_barrier(); // the counter is advanced by core1
+            now = dvi_->getFrameCounter();
+        }
+    }
+    last = now;
+#endif
+}
+
+// ---------------------------------------------------------------------------
 // Once per frame
 // ---------------------------------------------------------------------------
 static void processPerFrame()
 {
-    Frens::PaceFrames60fps(false);
+    paceFrame(false);
 
     if (haveRoms)
         presentFrame();
@@ -652,7 +738,7 @@ static void processPerFrame()
         if (rval == 5) // Reset Game
             mcr_reset(&machine);
         bordersValid = false; // the menu drew over the whole screen
-        Frens::PaceFrames60fps(true);
+        paceFrame(true);
         lastFrameUs = Frens::time_us();
         return;
     }
@@ -722,7 +808,7 @@ int main()
         drawErrorScreen(sdOk);
     }
 
-    Frens::PaceFrames60fps(true);
+    paceFrame(true);
     lastFrameUs = Frens::time_us();
     while (true)
         processPerFrame();
