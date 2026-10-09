@@ -138,7 +138,7 @@ Both pictures appear upright once the monitor is turned as described in the tabl
 
 **SELECT + START** opens the settings menu during the game. Besides *Tate mode*, it offers the screen mode with or without scanlines, the FPS overlay, audio on/off, rapid fire on A and on B, the external audio output, the menu colours, the Fruit Jam volume and VU meter, *Reset Game*, the controller test, BOOTSEL mode and USB drive mode. When started from pico-bootLoader, it also offers *Return to emulator selection menu*.
 
-The settings are stored on the SD card in `/settings_MCRS.dat`. The game has no save states, and high scores are not kept after a reset or power cycle.
+The settings are stored on the SD card in `/settings_ARC.dat`, a file shared by all arcade games of this family. The game has no save states, and high scores are not kept after a reset or power cycle.
 
 ***
 
