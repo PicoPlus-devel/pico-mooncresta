@@ -17,6 +17,7 @@ An emulator of the arcade game Moon Cresta (Nichibutsu, 1980) for RP2350 boards 
 
 - **Settings are shared with the other arcade games** of this family and stored in `/settings_ARC.dat`. Settings saved by v0.1 are not carried over, so they return to their defaults once.
 - **Quieter sound on the I2S DAC** (Fruit Jam headphone jack, external audio): it was too loud.
+- The menu colour settings are no longer shown in the settings menu.
 
 ## v0.1
 
