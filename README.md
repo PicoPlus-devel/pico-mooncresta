@@ -113,7 +113,7 @@ Moon Cresta was made for a monitor mounted on its side: the original picture is 
 
 | Tate mode | Picture | For |
 | --- | --- | --- |
-| Off (default) | Turned upright and shown in the centre of the screen. The 256 lines are fitted into the 240 of the screen by leaving out every sixteenth line. | A normal monitor or TV |
+| Off (default) | Turned upright and shown in the centre of the screen. On boards with HSTX video output, all 256 lines are scaled to the height of the screen; a screen line that falls between two lines of the picture shows a mix of both. On boards with PicoDVI output, the 256 lines are fitted into the 240 of the screen by leaving out every sixteenth line. | A normal monitor or TV |
 | Bottom left | The original 256 x 224 picture, unrotated and pixel exact. | A monitor turned 90 degrees clockwise, so that its bottom edge is on the left |
 | Bottom right | The same picture, rotated by 180 degrees. | A monitor turned 90 degrees counter-clockwise, so that its bottom edge is on the right |
 
@@ -178,7 +178,7 @@ python3 hosttest/ppm2png.py hosttest/out/frame_02400.ppm
 ./hosttest/zex_host zexdoc.com zexall.com
 ```
 
-`mcr_host` loads the ROM set through the same loader as the firmware, runs the given number of frames with scripted input, writes every Nth frame as a 320 x 240 PPM in the chosen orientation (`--tate 0|1|2`) and the sound as a WAV file. `zex_host` runs the ZEXDOC and ZEXALL instruction exercisers on the Z80 core; the test programs are not part of this repository.
+`mcr_host` loads the ROM set through the same loader as the firmware, runs the given number of frames with scripted input, writes every Nth frame as a 320 x 240 PPM in the chosen orientation (`--tate 0|1|2`) and the sound as a WAV file. `--tall` writes instead the 640 x 480 picture that a board with HSTX video output shows with *Tate mode* off. `zex_host` runs the ZEXDOC and ZEXALL instruction exercisers on the Z80 core; the test programs are not part of this repository.
 
 ***
 

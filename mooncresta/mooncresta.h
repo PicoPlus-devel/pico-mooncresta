@@ -108,6 +108,10 @@ typedef enum
     MCR_ORIENT_ROTATED = 0,  /* Tate mode Off: turned upright for a normal monitor */
     MCR_ORIENT_TATE_CW = 1,  /* Bottom left: raw raster; monitor turned clockwise */
     MCR_ORIENT_TATE_CCW = 2, /* Bottom right: raw raster rotated 180; monitor turned counter-clockwise */
+    /* Not a setting: Tate mode Off on a display that scales the rows itself
+     * (HSTX). All 256 rows of the upright picture, on a canvas `stride` pixels
+     * wide and MCR_RAW_WIDTH (256) rows tall, centred at x = (stride - 224) / 2. */
+    MCR_ORIENT_ROTATED_FULL = 3,
 } mcr_orient_t;
 
 typedef enum
@@ -143,7 +147,8 @@ void mcr_gfx_init(mcr_gfx_t *g, const mcr_roms_t *roms, mcr_pixfmt_t fmt);
 
 /* Draws the game area of the frame into a 320x240 canvas (stride in pixels).
  * Rotated mode shows the 224x256 picture as 224x240, centred, by dropping
- * every 16th row; tate shows the 256x224 raster centred.
+ * every 16th row; tate shows the 256x224 raster centred. Rotated full uses
+ * its own canvas, see MCR_ORIENT_ROTATED_FULL.
  *
  * The borders around the game area are not touched, so anything drawn there
  * (the FPS counter) survives from frame to frame. Paint them with

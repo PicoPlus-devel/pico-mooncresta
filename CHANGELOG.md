@@ -13,6 +13,10 @@ An emulator of the arcade game Moon Cresta (Nichibutsu, 1980) for RP2350 boards 
 
 # Changelog
 
+## v0.2.1
+
+- **Every line of the picture is shown** on boards with HSTX video output, such as the Adafruit Fruit Jam, when *Tate mode* is off. Before, one line in sixteen was left out.
+
 ## v0.2
 
 - **Settings are shared with the other arcade games** of this family and stored in `/settings_ARC.dat`. Settings saved by v0.1 are not carried over, so they return to their defaults once.

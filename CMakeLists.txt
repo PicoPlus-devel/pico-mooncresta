@@ -114,6 +114,11 @@ target_compile_definitions(${projectname} PRIVATE
 set_source_files_properties(${MOONCRESTA_CORE_SRC} PROPERTIES
     COMPILE_OPTIONS "-O2;-fno-tree-loop-distribute-patterns")
 
+# The upright picture (Tate off) on HSTX uses a canvas taller than 240 rows,
+# which the video driver scales to the screen: hstx_setFrameSize() in
+# pico_shared/drivers/pico_hdmi, only built when asked for.
+target_compile_definitions(${projectname} PRIVATE HSTX_CUSTOM_FRAME_SIZE=1)
+
 pico_set_program_name(${projectname} "${projectname}")
 pico_set_program_version(${projectname} "0.1")
 

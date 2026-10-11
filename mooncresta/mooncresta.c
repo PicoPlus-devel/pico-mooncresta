@@ -700,10 +700,20 @@ static void MCR_HOT(render_raw_column)(const mcr_gfx_t *g, const mcr_video_t *v,
     }
 }
 
-/* Game area of each orientation in the 320x240 canvas */
-static void game_area(mcr_orient_t orient, int *x0, int *y0, int *w, int *h)
+/* The canvas of each orientation (320x240, or stride x 256 for rotated
+ * full) and the game area in it */
+static void game_area(mcr_orient_t orient, int stride, int *cw, int *ch, int *x0, int *y0, int *w, int *h)
 {
-    if (orient == MCR_ORIENT_ROTATED)
+    *cw = CANVAS_W;
+    *ch = CANVAS_H;
+    if (orient == MCR_ORIENT_ROTATED_FULL)
+    {
+        *cw = stride;
+        *ch = MCR_RAW_WIDTH; /* 256 */
+        *w = MCR_RAW_HEIGHT; /* 224 */
+        *h = MCR_RAW_WIDTH;  /* 256 */
+    }
+    else if (orient == MCR_ORIENT_ROTATED)
     {
         *w = MCR_RAW_HEIGHT; /* 224 */
         *h = CANVAS_H;       /* 240 */
@@ -713,35 +723,43 @@ static void game_area(mcr_orient_t orient, int *x0, int *y0, int *w, int *h)
         *w = MCR_RAW_WIDTH;  /* 256 */
         *h = MCR_RAW_HEIGHT; /* 224 */
     }
-    *x0 = (CANVAS_W - *w) / 2;
-    *y0 = (CANVAS_H - *h) / 2;
+    *x0 = (*cw - *w) / 2;
+    *y0 = (*ch - *h) / 2;
 }
 
 void mcr_render_borders(const mcr_gfx_t *g, mcr_orient_t orient, uint16_t *fb, int stride)
 {
-    int x0, y0, w, h;
-    game_area(orient, &x0, &y0, &w, &h);
-    for (int r = 0; r < CANVAS_H; r++)
+    int cw, ch, x0, y0, w, h;
+    game_area(orient, stride, &cw, &ch, &x0, &y0, &w, &h);
+    for (int r = 0; r < ch; r++)
     {
         uint16_t *row = fb + r * stride;
         if (r < y0 || r >= y0 + h)
         {
-            fill(row, CANVAS_W, g->black);
+            fill(row, cw, g->black);
         }
         else
         {
             fill(row, x0, g->black);
-            fill(row + x0 + w, CANVAS_W - x0 - w, g->black);
+            fill(row + x0 + w, cw - x0 - w, g->black);
         }
     }
 }
 
 void MCR_HOT(mcr_render)(const mcr_gfx_t *g, const mcr_video_t *v, mcr_orient_t orient, uint16_t *fb, int stride)
 {
-    int x0, y0, w, h;
-    game_area(orient, &x0, &y0, &w, &h);
-    prepare(g, v, orient == MCR_ORIENT_ROTATED);
+    int cw, ch, x0, y0, w, h;
+    game_area(orient, stride, &cw, &ch, &x0, &y0, &w, &h);
+    const int rotated = (orient == MCR_ORIENT_ROTATED || orient == MCR_ORIENT_ROTATED_FULL);
+    prepare(g, v, rotated);
 
+    if (orient == MCR_ORIENT_ROTATED_FULL)
+    {
+        /* Upright 224 x 256 picture: output row r shows raw column x = r */
+        for (int r = 0; r < MCR_RAW_WIDTH; r++)
+            render_raw_column(g, v, r, fb + r * stride + x0);
+        return;
+    }
     if (orient == MCR_ORIENT_ROTATED)
     {
         /* Upright 224 x 256 picture: output row r shows raw column
