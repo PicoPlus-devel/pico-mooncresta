@@ -13,6 +13,10 @@ An emulator of the arcade game Moon Cresta (Nichibutsu, 1980) for RP2350 boards 
 
 # Changelog
 
+## v0.2.2
+
+- The release now includes updateAll.exe, which installs the ROM set on the SD card from a Windows computer. The readme explains how to use it.
+
 ## v0.2.1
 
 - **Every line of the picture is shown** on boards with HSTX video output, such as the Adafruit Fruit Jam, when *Tate mode* is off. Before, one line in sixteen was left out.

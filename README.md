@@ -54,6 +54,17 @@ Copy it to the folder **`/roms/arcade/MOONCRESTA`** on the SD card, in either fo
 
 Files are recognised by their size and CRC32, so their names do not matter, and a corrupt or different file is never loaded. The board creates the folder `/roms/arcade/MOONCRESTA` on first start.
 
+**updateAll installs the set.** `updateAll.exe`, a program for Windows 10 and 11, is included in every release of pico-mooncresta, among the files at the end of the release page. It runs on a computer with the SD card inserted: it takes `mooncrst.zip` from a folder of your choice, or downloads it when it is not there, and writes the set, unzipped, into `/roms/arcade/MOONCRESTA`. It is a single file and needs no installation. The program is not signed, so Windows may show "Windows protected your PC" the first time it is started; select **More info**, then **Run anyway**.
+
+1. Start `updateAll.exe`. It selects a removable drive by itself; under **SD card**, check that it is the card, or choose another.
+2. Under **Zip folder**, choose the folder with the MAME zips you already have, if any.
+3. Untick the sets that are not wanted. updateAll also installs the sets of other applications of this family, such as pico-galagino and pico-outrun; pico-mooncresta needs only the set **Moon Cresta**. The **Status** column shows which sets are already complete on the card.
+4. Select **Install**.
+
+By default, zips that are not in the zip folder are downloaded from [ArcadeROMsDB_MiSTer](https://github.com/zakk4223/ArcadeROMsDB_MiSTer), a third-party database that is not part of this project. The user is responsible for holding the rights to the ROM sets, whether they are supplied as zips or downloaded. To use only your own zips, untick **Download missing zips**.
+
+updateAll is maintained in [pico-bootLoader](https://github.com/PicoPlus-devel/pico-bootLoader), whose SD-card archive carries it as well. The same installer is also available there as a Python script, `updateAll.py`, for Linux and macOS, and as a PowerShell script, `updateAll.ps1`. The [updateAll README](https://github.com/PicoPlus-devel/pico-bootLoader/blob/main/updateAll/README.md) describes all three and their options.
+
 When the set is missing or incomplete, the board shows a screen that names the missing files. **SELECT + START** opens the settings menu from that screen; its *USB drive mode* shows the SD card on a computer, so the ROM set can be copied to it without removing the card. After leaving the menu, the board restarts and looks for the set again.
 
 The ROM sets of the clones and bootlegs (Gremlin, the USA and UK versions, Super Moon Cresta, Eagle, Fantazia and others) are not supported.
@@ -186,6 +197,7 @@ python3 hosttest/ppm2png.py hosttest/out/frame_02400.ppm
 
 - Galaxian and Moon Cresta driver and video emulation: the MAME project, by Aaron Giles, Couriersud, Stephane Humbert and Robbbert. Sound: Couriersud, with the discrete sound modules of K. Wilkins and Derrick Renaud. Z80 CPU core: Juergen Buchmueller and Andrei I. Holub. These parts are under the BSD-3-Clause licence; see [mooncresta/LICENSE](mooncresta/LICENSE).
 - miniz (inflate and CRC32): Rich Geldreich and others; see the licence text in [third_party/miniz/miniz.c](third_party/miniz/miniz.c).
+- updateAll, the ROM set installer included in the releases as `updateAll.exe`: [pico-bootLoader](https://github.com/PicoPlus-devel/pico-bootLoader/tree/main/updateAll), under the GNU General Public License v3.0, built with miniz and cJSON (MIT licence). Its source is in that repository.
 - Framework, menu, display, audio and controller support: [pico_shared](https://github.com/PicoPlus-devel/pico_shared) and the sister projects listed above.
 
 pico-mooncresta is distributed under the GNU General Public License v3.0; see [LICENSE](LICENSE).
