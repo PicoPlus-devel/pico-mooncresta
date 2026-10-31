@@ -15,6 +15,7 @@ An emulator of the arcade game Moon Cresta (Nichibutsu, 1980) for RP2350 boards 
 
 ## v0.2.3
 
+- **No scanlines on boards with PicoDVI output.** With *Tate mode* off they did not display well, so the scanline screen mode is no longer offered on these boards. A saved scanline setting switches to the mode without scanlines.
 - Fixed: on the Adafruit Fruit Jam and other boards with PIO-USB, USB controllers were often not found at start-up.
 
 ## v0.2.2
