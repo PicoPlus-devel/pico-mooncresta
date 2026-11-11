@@ -14,6 +14,11 @@
  *   --coin F       insert a coin at frame F (held for 4 frames)
  *   --start F      press 1P start at frame F (held for 4 frames)
  *   --play F       from frame F: fire every 16 frames, sway left/right
+ *   --keys F:MASK  hold the inputs MASK (MCR_IN_*, hex) from frame F for 4 frames
+ *   --dip ROW=CHOICE  a DIP switch from the start: the row and the choice are
+ *                  numbers, as --dip-list shows them
+ *   --dip-list     print the DIP switch rows and the ports and exit; fails when
+ *                  a default is not one of its row's choices
  *
  * Every dumped frame is outdir/frame_NNNNN.ppm (320x240, the canvas the board
  * shows; with --tall the 640x480 the HSTX driver sends). A summary line per
@@ -191,6 +196,10 @@ int main(int argc, char **argv)
     int tate = 0, tall = 0, coin_at = -1, start_at = -1, play_at = -1;
     const char *wav_path = NULL;
     int a = 4;
+    struct { int at; uint8_t mask; } keys[64];
+    int nkeys = 0;
+    struct { int row, choice; } dips[16];
+    int ndips = 0, dip_list = 0;
     if (argc > 4 && argv[4][0] != '-')
         outdir = argv[a++];
     for (; a < argc; a++)
@@ -207,6 +216,27 @@ int main(int argc, char **argv)
             start_at = atoi(argv[++a]);
         else if (!strcmp(argv[a], "--play") && a + 1 < argc)
             play_at = atoi(argv[++a]);
+        else if (!strcmp(argv[a], "--keys") && a + 1 < argc && nkeys < 64)
+        {
+            unsigned mask = 0;
+            if (sscanf(argv[++a], "%d:%x", &keys[nkeys].at, &mask) != 2)
+            {
+                fprintf(stderr, "--keys F:MASK\n");
+                return 1;
+            }
+            keys[nkeys++].mask = (uint8_t)mask;
+        }
+        else if (!strcmp(argv[a], "--dip") && a + 1 < argc && ndips < 16)
+        {
+            if (sscanf(argv[++a], "%d=%d", &dips[ndips].row, &dips[ndips].choice) != 2)
+            {
+                fprintf(stderr, "--dip ROW=CHOICE\n");
+                return 1;
+            }
+            ndips++;
+        }
+        else if (!strcmp(argv[a], "--dip-list"))
+            dip_list = 1;
         else
         {
             fprintf(stderr, "unknown option %s\n", argv[a]);
@@ -240,6 +270,41 @@ int main(int argc, char **argv)
     static mcr_t m;
     static mcr_gfx_t gfx;
     mcr_init(&m, &roms, SAMPLERATE, SAMPLES_PER_FRAME);
+    /* the DIP switches: the defaults must be choices, then --dip */
+    uint8_t *ports = m.dsw;
+    int bad_default = 0;
+    for (int k = 0; k < mcr_ndips; k++)
+        if (mcr_dip_choice(&mcr_dips[k], ports) < 0)
+        {
+            printf("row %d %s: the default is not one of its choices\n", k, mcr_dips[k].label);
+            bad_default = 1;
+        }
+    for (int i = 0; i < ndips; i++)
+    {
+        if (dips[i].row < 0 || dips[i].row >= mcr_ndips || dips[i].choice < 0 ||
+            dips[i].choice >= mcr_dips[dips[i].row].count)
+        {
+            fprintf(stderr, "--dip %d=%d: no such row or choice\n", dips[i].row, dips[i].choice);
+            return 1;
+        }
+        mcr_dip_select(&mcr_dips[dips[i].row], ports, dips[i].choice);
+    }
+    if (dip_list)
+    {
+        printf("%d DIP switch rows\n", mcr_ndips);
+        for (int k = 0; k < mcr_ndips; k++)
+        {
+            const mcr_dip_t *d = &mcr_dips[k];
+            const int cur = mcr_dip_choice(d, ports);
+            printf("  %d %-12s port %d mask %02x:", k, d->label, d->port, d->mask);
+            for (int c = 0; c < d->count; c++)
+                printf(c == cur ? " %d=[%s]" : " %d=%s", c, d->names[c]);
+            printf("\n");
+        }
+        for (int i = 0; i < MCR_DIP_PORTS; i++)
+            printf("  port %d: %02x\n", i, ports[i]);
+        return bad_default ? 3 : 0;
+    }
     /* --tall blends RGB555, as the HSTX driver does */
     mcr_gfx_init(&gfx, &roms, tall ? MCR_FMT_RGB555 : MCR_FMT_RGB565);
 
@@ -264,6 +329,9 @@ int main(int argc, char **argv)
             in |= MCR_IN_COIN;
         if (start_at >= 0 && f >= start_at && f < start_at + 4)
             in |= MCR_IN_START1;
+        for (int k = 0; k < nkeys; k++)
+            if (f >= keys[k].at && f < keys[k].at + 4)
+                in |= keys[k].mask;
         if (play_at >= 0 && f >= play_at)
         {
             int p = f - play_at;

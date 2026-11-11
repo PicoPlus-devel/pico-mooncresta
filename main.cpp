@@ -45,6 +45,7 @@
 
 #include "mooncresta.h"
 #include "romload.h"
+#include "dipfile.h"
 
 // The emulated machine is light: a Z80 at 3.07 MHz, a tilemap, eight sprites
 // and a few sound circuits. The standard 252 MHz clock (10x the 640x480 pixel
@@ -739,6 +740,73 @@ static void paceFrame(bool init)
 }
 
 // ---------------------------------------------------------------------------
+// The DIP switches: rows of the settings menu (menuSetEmulatorOptions in menu.h,
+// the table in the core), kept in DIPS_PATH. Saving a change restarts the game,
+// which then sees the switches from its start. The menu stops the game while it
+// is open, so the rows edit the switches the game reads.
+// ---------------------------------------------------------------------------
+#define DIPS_DIR GAMESAVEDIR "/MOONCRESTA"
+#define DIPS_PATH DIPS_DIR "/MOONCRESTA.DIP"
+
+static int ndips = 0;
+static bool dipsChanged = false;
+static MenuEmulatorOption dipOptions[MENU_MAX_EMULATOR_OPTIONS];
+
+static void saveDips()
+{
+    f_mkdir(GAMESAVEDIR);
+    f_mkdir(DIPS_DIR);
+    FIL *fil = (FIL *)Frens::f_malloc(sizeof(FIL));
+    const bool ok = fil && dipFileSave(fil, DIPS_PATH, mcr_dips, ndips, machine.dsw);
+    Frens::f_free(fil);
+    printf("DIP switches %s %s\n", ok ? "saved to" : "NOT saved to", DIPS_PATH);
+}
+
+template <int K>
+static int dipGet()
+{
+    return mcr_dip_choice(&mcr_dips[K], machine.dsw);
+}
+
+// Called for every row on SAVE, in order. The file is written at the last row,
+// not when the menu returns: a setting that restarts the board does so from
+// within the menu, after these calls.
+template <int K>
+static void dipSet(int choice)
+{
+    uint8_t *ports = machine.dsw;
+    const uint8_t was = ports[mcr_dips[K].port];
+    mcr_dip_select(&mcr_dips[K], ports, choice);
+    if (ports[mcr_dips[K].port] != was)
+        dipsChanged = true;
+    if (K == ndips - 1 && dipsChanged)
+        saveDips();
+}
+
+static int (*const dipGets[MENU_MAX_EMULATOR_OPTIONS])(void) = {
+    dipGet<0>, dipGet<1>, dipGet<2>, dipGet<3>, dipGet<4>, dipGet<5>, dipGet<6>, dipGet<7>,
+};
+static void (*const dipSets[MENU_MAX_EMULATOR_OPTIONS])(int) = {
+    dipSet<0>, dipSet<1>, dipSet<2>, dipSet<3>, dipSet<4>, dipSet<5>, dipSet<6>, dipSet<7>,
+};
+
+// After mcr_init: the switches hold the game's defaults, for DEFAULT to select,
+// until the choices kept on the card are read.
+static void startDips()
+{
+    ndips = mcr_ndips < MENU_MAX_EMULATOR_OPTIONS ? mcr_ndips : MENU_MAX_EMULATOR_OPTIONS;
+    uint8_t *ports = machine.dsw;
+    for (int k = 0; k < ndips; k++)
+        dipOptions[k] = {mcr_dips[k].label, mcr_dips[k].help, mcr_dips[k].count, mcr_dips[k].names,
+                         mcr_dip_choice(&mcr_dips[k], ports), dipGets[k], dipSets[k]};
+    FIL *fil = (FIL *)Frens::f_malloc(sizeof(FIL));
+    if (fil && dipFileLoad(fil, DIPS_PATH, mcr_dips, ndips, ports))
+        printf("DIP switches read from %s\n", DIPS_PATH);
+    Frens::f_free(fil);
+    menuSetEmulatorOptions(dipOptions, ndips);
+}
+
+// ---------------------------------------------------------------------------
 // Once per frame
 // ---------------------------------------------------------------------------
 static void processPerFrame()
@@ -805,7 +873,9 @@ static void processPerFrame()
             while (true)
                 tight_loop_contents();
         }
-        if (rval == 5) // Reset Game
+        const bool newDips = dipsChanged;
+        dipsChanged = false;
+        if (rval == 5 || newDips) // Reset Game, or the DIP switches changed
             mcr_reset(&machine);
         bordersValid = false; // the menu drew over the whole screen
         paceFrame(true);
@@ -882,6 +952,7 @@ int main()
     {
         mcr_gfx_init(&gfx, &roms, HSTX ? MCR_FMT_RGB555 : MCR_FMT_RGB444);
         mcr_init(&machine, &roms, SAMPLERATE, SAMPLES_PER_FRAME);
+        startDips();
     }
     else
     {

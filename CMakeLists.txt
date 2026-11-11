@@ -92,6 +92,7 @@ set(MOONCRESTA_CORE_SRC
 add_executable(${projectname}
     main.cpp
     splash.cpp
+    dipfile.c
     ${MOONCRESTA_CORE_SRC}
     DefaultSS444.c
     DefaultSS555.c
