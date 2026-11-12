@@ -92,6 +92,7 @@ set(MOONCRESTA_CORE_SRC
 add_executable(${projectname}
     main.cpp
     splash.cpp
+    dipfile.c
     ${MOONCRESTA_CORE_SRC}
     DefaultSS444.c
     DefaultSS555.c
@@ -247,7 +248,6 @@ if(DEFINED PICO_DEFAULT_UART_TX_PIN)
     message(STATUS "Using PICO_DEFAULT_UART_TX_PIN: ${PICO_DEFAULT_UART_TX_PIN}")
     target_compile_definitions(${projectname} PRIVATE
         PICO_DEFAULT_UART_TX_PIN=${PICO_DEFAULT_UART_TX_PIN}
-        PICO_DEFAULT_UART=0
     )
 endif()
 if(DEFINED PICO_DEFAULT_UART_RX_PIN)

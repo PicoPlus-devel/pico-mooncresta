@@ -30,6 +30,7 @@ mmi6331.6l
 # Host harness (hosttest/) binaries and outputs
 hosttest/mcr_host
 hosttest/zex_host
+hosttest/dip_test
 hosttest/out*/
 hosttest/**/*.ppm
 hosttest/**/*.png

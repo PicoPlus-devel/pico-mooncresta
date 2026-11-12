@@ -73,7 +73,7 @@ static uint8_t MCR_HOT(mem_read)(z80_t *cpu, uint16_t addr)
         /* IN1: start 1, start 2, P2 left, right, fire, then DIP switches.
          * The game reads player 2 from here even on an upright cabinet, so
          * the same controls drive both players' bits. */
-        v = m->in1_dsw;
+        v = m->dsw[0];
         if (m->inputs & MCR_IN_START1)
             v |= 0x01;
         if (m->inputs & MCR_IN_START2)
@@ -86,7 +86,7 @@ static uint8_t MCR_HOT(mem_read)(z80_t *cpu, uint16_t addr)
             v |= 0x10;
         return v;
     case 0xb000:
-        return m->dsw;
+        return m->dsw[1];
     default:
         return 0xff; /* watchdog and unmapped */
     }
@@ -182,8 +182,8 @@ void mcr_init(mcr_t *m, const mcr_roms_t *roms, int samplerate, int samples_per_
 {
     memset(m, 0, sizeof(*m));
     m->roms = roms;
-    m->in1_dsw = MCR_IN1_DSW_DEFAULT;
-    m->dsw = MCR_IN2_DSW_DEFAULT;
+    m->dsw[0] = MCR_IN1_DSW_DEFAULT;
+    m->dsw[1] = MCR_IN2_DSW_DEFAULT;
     m->audio_samples = samples_per_frame;
 
     z80_init(&m->cpu);
@@ -785,4 +785,44 @@ void MCR_HOT(mcr_render)(const mcr_gfx_t *g, const mcr_video_t *v, mcr_orient_t 
                 row[x] = rs.line[MCR_RAW_WIDTH - 1 - x];
         }
     }
+}
+
+/* ---------------------------------------------------------------------------
+ * DIP switches: MAME's mooncrst. The coin button is coin slot A. Not offered:
+ * the cabinet, as the flipped picture of a cocktail cabinet is not emulated,
+ * and coin slot B, but for its free play setting, which gets a row of its own.
+ * ------------------------------------------------------------------------ */
+
+#define DIP_ROW(label, text, port, mask, names, values) \
+    {label, text ". Saving restarts game", port, mask, sizeof(values), names, values}
+
+static const char *const coin_names[] = {"4 coins, 1 credit", "3 coins, 1 credit", "2 coins, 1 credit", "1 coin, 1 credit"};
+static const uint8_t coin_values[] = {0x03, 0x02, 0x01, 0x00};
+static const char *const off_on_names[] = {"OFF", "ON"};
+static const uint8_t free_values[] = {0x00, 0x0c};
+static const char *const bonus_names[] = {"30000", "50000"};
+static const uint8_t bonus_values[] = {0x00, 0x40};
+static const char *const language_names[] = {"English", "Japanese"};
+static const uint8_t language_values[] = {0x80, 0x00};
+
+const mcr_dip_t mcr_dips[] = {
+    DIP_ROW("Coinage", "Coins per credit", 1, 0x03, coin_names, coin_values),
+    DIP_ROW("Free play", "No coins needed", 1, 0x0c, off_on_names, free_values),
+    DIP_ROW("Bonus life", "Extra life at", 0, 0x40, bonus_names, bonus_values),
+    DIP_ROW("Language", "Language of texts", 0, 0x80, language_names, language_values),
+};
+const int mcr_ndips = sizeof(mcr_dips) / sizeof(mcr_dips[0]);
+
+int mcr_dip_choice(const mcr_dip_t *d, const uint8_t *ports)
+{
+    for (int c = 0; c < d->count; c++)
+        if ((ports[d->port] & d->mask) == d->values[c])
+            return c;
+    return -1;
+}
+
+void mcr_dip_select(const mcr_dip_t *d, uint8_t *ports, int choice)
+{
+    if (choice >= 0 && choice < d->count)
+        ports[d->port] = (uint8_t)((ports[d->port] & ~d->mask) | d->values[choice]);
 }

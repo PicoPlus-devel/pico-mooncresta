@@ -89,10 +89,12 @@ pico-mooncresta runs on every RP2350 configuration of this family. It requires n
 | 13 | Murmulator M2 | HSTX | `picoMoonCresta_MurmulatorM2_arm.uf2` |
 | 14 | Adafruit Feather RP2350 with HSTX Port and TLV320DAC3100 I2S DAC | HSTX | `picoMoonCresta_AdafruitFeatherRP2350_TLV320DAC3100_arm_piousb.uf2` |
 | 15 | Olimex RP2040-PICO-PC with a Raspberry Pi Pico 2 | HSTX | `picoMoonCresta_OlimexPicoPC_arm.uf2` |
+| 17 | Pico Computer 3 | HSTX | `picoMoonCresta_PicoComputer3_arm.uf2` |
+| 18 | PCB for the Waveshare RP2350-PiZero | HSTX | `picoMoonCresta_WaveShareRP2350PiZeroLiuPCB_arm_piousb.uf2` |
 
 For wiring and assembly instructions, see the setup sections of the [pico-infonesPlus README](https://github.com/PicoPlus-devel/pico-infonesPlus#setup). To flash a board, hold BOOTSEL while connecting it over USB, then copy the `.uf2` file onto the USB drive that appears.
 
-Audio is sent over HDMI. Boards with an I2S DAC (configurations 8, 13 and 14) can use it instead through the *External Audio* setting; on the Fruit Jam, plugging in headphones selects it automatically. Configuration 15 also plays the sound on its PWM audio jack.
+Audio is sent over HDMI. Boards with an I2S DAC (configurations 8, 13, 14, 17 and 18) can use it instead through the *External Audio* setting; on the Fruit Jam, plugging in headphones selects it automatically. Configuration 15 also plays the sound on its PWM audio jack.
 
 ***
 
@@ -114,7 +116,7 @@ Moon Cresta has a two-way joystick and one fire button. Two players take turns o
 
 USB game controllers, NES and SNES controllers on the GPIO ports and the Wii Classic controller are supported, as in the other emulators of this family. A and B both press the fire button. Each has its own rapid fire setting, so one of them can fire single shots and the other fire automatically. The coin is inserted when SELECT is released, and only when no other button was pressed while it was held, so opening the settings menu does not insert a coin. While START is held, A switches the frame rate display (top left, in the border) on or off instead of firing; the same setting is also in the settings menu.
 
-The game is set to its factory defaults: an upright cabinet, a bonus ship at 30,000 points, English text, and 1 coin for 1 credit.
+The game starts with its factory defaults: an upright cabinet, a bonus ship at 30,000 points, English text, and 1 coin for 1 credit. Apart from the cabinet, these can be changed in the settings menu; see [DIP switches](#dip-switches).
 
 ***
 
@@ -147,9 +149,28 @@ Both pictures appear upright once the monitor is turned as described in the tabl
 
 ## Settings menu
 
-**SELECT + START** opens the settings menu during the game. Besides *Tate mode*, it offers the screen mode with or without scanlines (on boards with HSTX output; PicoDVI boards have no scanlines), the FPS overlay, audio on/off, rapid fire on A and on B, the external audio output, the Fruit Jam volume and VU meter, *Reset Game*, the controller test, BOOTSEL mode and USB drive mode. When started from pico-bootLoader, it also offers *Return to emulator selection menu*.
+**SELECT + START** opens the settings menu during the game. Besides *Tate mode*, it offers the screen mode with or without scanlines (on boards with HSTX output; PicoDVI boards have no scanlines), the FPS overlay, audio on/off, rapid fire on A and on B, the external audio output, the Fruit Jam volume and VU meter, *Reset Game*, the game's [DIP switches](#dip-switches), the controller test, BOOTSEL mode and USB drive mode. When started from pico-bootLoader, it also offers *Return to boot loader*.
 
 The settings are stored on the SD card in `/settings_ARC.dat`, a file shared by all arcade games of this family. The game has no save states, and high scores are not kept after a reset or power cycle.
+
+### DIP switches
+
+The settings menu also lists the DIP switches of the game:
+
+| Setting | Choices |
+| --- | --- |
+| Coinage (coins for credits) | 4 for 1, 3 for 1, 2 for 1, **1 for 1** |
+| Free play | **Off**, on |
+| Bonus life | **30000**, 50000 |
+| Language | **English**, Japanese |
+
+- **SAVE** with a changed switch restarts the game, as the game reads its switches when it starts. The game in progress is lost. **SAVE** without a changed switch does not restart the game.
+- **CANCEL** leaves the switches as they were.
+- **DEFAULT** selects the values shown in bold, which take effect when saved. These are the settings the game has when nothing was changed.
+
+The coin button is the first coin slot. Free play is a setting of the coinage switches of the second slot, and is offered on a row of its own. The following switches are not offered: the cabinet, because the flipped picture of a cocktail cabinet is not emulated, and the other settings of the second coin slot, because there is one coin button.
+
+The choices are kept on the SD card in `/SAVES/MOONCRESTA/MOONCRESTA.DIP`, a short text file with a line per bank of switches, such as `dsw1=0c`. Without the file, or when it cannot be read, the game uses its defaults, so deleting the file restores them. Anything in the file that is not a choice of a menu row is ignored.
 
 ***
 
@@ -186,10 +207,13 @@ The emulated board in `mooncresta/` is plain C without Pico dependencies, and al
 hosttest/build.sh
 ./hosttest/mcr_host ~/roms/arcade/MOONCRESTA 3600 300 hosttest/out --coin 1800 --start 1860 --play 1920 --wav hosttest/out/game.wav
 python3 hosttest/ppm2png.py hosttest/out/frame_02400.ppm
+./hosttest/dip_test
 ./hosttest/zex_host zexdoc.com zexall.com
 ```
 
 `mcr_host` loads the ROM set through the same loader as the firmware, runs the given number of frames with scripted input, writes every Nth frame as a 320 x 240 PPM in the chosen orientation (`--tate 0|1|2`) and the sound as a WAV file. `--tall` writes instead the 640 x 480 picture that a board with HSTX video output shows with *Tate mode* off. `zex_host` runs the ZEXDOC and ZEXALL instruction exercisers on the Z80 core; the test programs are not part of this repository.
+
+`dip_test` checks the file of the [DIP switches](#dip-switches) against a simulated FatFs, and the table of the game; it needs no ROM set. `mcr_host --dip-list` prints the rows of the DIP switches, and `--dip ROW=CHOICE` sets one from the start of a run, with the numbers that `--dip-list` shows. `--keys F:MASK` holds inputs from frame F for 4 frames, for example several coins.
 
 ***
 

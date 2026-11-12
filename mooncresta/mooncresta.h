@@ -33,6 +33,8 @@ extern "C" {
 #define MCR_VISIBLE_LINES 224
 #define MCR_CYCLES_PER_FRAME (MCR_CYCLES_PER_LINE * MCR_LINES) /* 50688 */
 
+#define MCR_DIP_PORTS 2 /* the DIP switch ports, see mcr_dip_t */
+
 #define MCR_RAW_WIDTH 256
 #define MCR_RAW_HEIGHT 224
 
@@ -73,8 +75,7 @@ typedef struct mcr
     uint8_t nmi_enabled;
     uint8_t stars_enabled;
     uint8_t inputs; /* MCR_IN_* */
-    uint8_t in1_dsw; /* IN1 bits 5-7 */
-    uint8_t dsw;     /* IN2 */
+    uint8_t dsw[MCR_DIP_PORTS]; /* the DIP switches: IN1 bits 5-7, IN2 */
     uint32_t star_origin;
     uint32_t frame;
     uint32_t star_origin_frame;
@@ -90,6 +91,31 @@ typedef struct mcr
 
 void mcr_init(mcr_t *m, const mcr_roms_t *roms, int samplerate, int samples_per_frame);
 void mcr_reset(mcr_t *m);
+
+/* --- DIP switches -------------------------------------------------------------
+ * The switches as rows of a menu. Port 0 holds the switch bits of MAME's IN1,
+ * port 1 its IN2, so a row's values read as MAME's PORT_DIPSETTINGs. The game
+ * reads them from m->dsw, which mcr_init sets to the defaults; mcr_reset keeps
+ * them, and the game takes a change into account from its next start. */
+typedef struct
+{
+    const char *label;        /* "Coinage" */
+    const char *help;         /* at most 40 characters */
+    uint8_t port;             /* index into the ports */
+    uint8_t mask;             /* its bits in that port */
+    uint8_t count;            /* its choices */
+    const char *const *names; /* what each choice is shown as */
+    const uint8_t *values;    /* the bits of each choice */
+} mcr_dip_t;
+
+extern const mcr_dip_t mcr_dips[];
+extern const int mcr_ndips;
+
+/* The choice these ports hold for a row, or -1 if they hold none of them. */
+int mcr_dip_choice(const mcr_dip_t *d, const uint8_t *ports);
+
+/* Puts a choice of a row into the ports. Other bits stay; -1 changes nothing. */
+void mcr_dip_select(const mcr_dip_t *d, uint8_t *ports, int choice);
 
 /* Runs one frame (50688 CPU cycles) and renders samples_per_frame samples into
  * audio. m->video holds the picture of this frame afterwards. */
