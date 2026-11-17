@@ -13,6 +13,10 @@ An emulator of the arcade game Moon Cresta (Nichibutsu, 1980) for RP2350 boards 
 
 # Changelog
 
+## Next release
+
+- Built with Pico SDK 2.3.1. This leaves a little more memory free, about 4.4 KB.
+
 ## v0.3
 
 - **The DIP switches can now be changed in the settings menu**: coins per credit, free play, the bonus life and the language. Saving a change restarts the game. The choices are kept on the SD card. The readme lists them.
