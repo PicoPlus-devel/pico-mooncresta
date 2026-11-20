@@ -15,6 +15,7 @@ An emulator of the arcade game Moon Cresta (Nichibutsu, 1980) for RP2350 boards 
 
 ## Next release
 
+- **Attract mode.** pico-bootLoader's new attract mode can now start the game when its ROMs are on the card; it then plays its own demo. Press any button to play yourself.
 - Built with Pico SDK 2.3.1. This leaves a little more memory free, about 4.4 KB.
 
 ## v0.3
